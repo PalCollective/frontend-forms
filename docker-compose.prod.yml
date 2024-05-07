@@ -1,0 +1,28 @@
+version: "3.7"
+
+# For deployment on our server with traefik at f.palcollective.com
+name: forms-frontend
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+        - node_version=22.0.0
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.giraffe.rule=Host(`f.palcollective.com`)"
+      - "traefik.http.routers.giraffe.entrypoints=websecure"
+      - "traefik.http.routers.giraffe.tls.certresolver=myresolver"
+      - "traefik.http.routers.giraffe.middlewares=giraffe"
+      - "traefik.http.middlewares.giraffe.headers.accesscontrolallowmethods=GET,OPTIONS,POST"
+      - "traefik.http.middlewares.giraffe.headers.accesscontrolallowheaders=*"
+      - "traefik.http.middlewares.giraffe.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.giraffe.headers.addvaryheader=true"
+      - "traefik.docker.network=traefik"
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    external: true

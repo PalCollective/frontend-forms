@@ -20,7 +20,8 @@
     "@mui/material": "latest",
     "@mui/icons-material": "latest",
     "stylis": "latest",
-    "stylis-plugin-rtl": "latest"
+    "stylis-plugin-rtl": "latest",
+    "axios": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
