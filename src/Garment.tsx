@@ -13,7 +13,7 @@ import {
   ToggleButtonGroup,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
-import { HTMLAttributes } from "react";
+import { HTMLAttributes, useEffect } from "react";
 import { useRef, useState } from "react";
 
 function removeKey<T extends HTMLElement>(props: HTMLAttributes<T>) {
@@ -50,6 +50,16 @@ export function Garment({ validated, garment, changeGarment }: GarmentProps) {
     missingPieceCount = false, incorrectPieceCount = false,
     missingInitialPrice = false, incorrectIntitialPrice = false,
     missingFinalPrice = false, incorrectFinalPrice = false;
+
+  useEffect(() => {
+    if (priceType === PriceType.fixed)
+      changeGarment('initialPrice', undefined);
+  }, [priceType, changeGarment]);
+
+  useEffect(() => {
+    if (countType === CountType.piece)
+      changeGarment('package', undefined);
+  }, [countType, changeGarment]);
 
   return (
     <Container disableGutters sx={{mb:1}}>

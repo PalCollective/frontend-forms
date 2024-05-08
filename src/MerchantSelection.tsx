@@ -16,6 +16,7 @@ interface MerchantSelectionProps {
   seller: string;
   setSeller: React.Dispatch<React.SetStateAction<string>>;
   validated : boolean;
+  resetValidated: () => void,
   setDirtyMerchant: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -25,6 +26,7 @@ export function MerchantSelection({
   seller,
   setSeller,
   validated,
+  //resetValidated,
   setDirtyMerchant
 }: MerchantSelectionProps) {
   

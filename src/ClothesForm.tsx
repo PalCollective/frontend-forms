@@ -5,8 +5,10 @@ import {
   Box,
   Button,
   Card,
+  Chip,
   Container,
   Divider,
+  Fab,
   Grid,
   IconButton,
   ListItem,
@@ -21,7 +23,7 @@ import StorefrontIcon from "@mui/icons-material/Storefront";
 import { Merchant } from "./data/merchants";
 import { MerchantSelection } from "./MerchantSelection";
 import { ConfirmationDialogue } from "./ConfirmationDialogue";
-import DeleteIcon from "@mui/icons-material/Delete";
+import DeleteIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import { useLoaderData } from "react-router-dom";
 import { md5 } from "./utils/md5";
@@ -80,64 +82,114 @@ export function ClothesForm() {
   const [dirtyMerchant, setDirtyMerchant] = useState<boolean>(false);
   const [seller, setSeller] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [errorMessagePlacement, setErrorMessagePlacement] = useState<number>(0);
   const [totalAmount, setTotalAmount] = useState<number>(NaN);
   const [readyToSubmit, setReadyToSubmit] = useState<boolean>(false);
   const [confirmationOpen, setConfirmationOpen] = useState<boolean>(false);
+  const merchantSet = useRef(new Set<string>());
 
   const ipLocation = useRef<Partial<IpLocationInformation>>({});
 
+  const validateMerchant = useCallback(
+    (silent?: boolean) => {
+      const values = [merchant?.name, merchant?.address, seller];
+      if (
+        values.some(
+          (value) => typeof value !== "string" || value.trim().length === 0
+        )
+      ) {
+        if (silent !== true) {
+          setErrorMessage("من أي محل أو بائع تحجزون هذه القطعة؟");
+          setErrorMessagePlacement(0);
+        }
+        return false;
+      }
+      return true;
+    },
+    [seller, merchant?.address, merchant?.name]
+  );
+
   const validate = useCallback(
     (silent?: boolean) => {
-      let isError = false;
-      const values = [merchant?.name, merchant?.address, seller];
-      if (values.some((value) => value?.trim().length === 0)) {
-        if (silent !== true)
-          setErrorMessage("من أي محل أو بائع تحجزون هذه القطعة؟");
-        isError = true;
+      if (validateMerchant(silent) === false) {
+        return false;
       }
 
+      if (!Array.isArray(garments) || garments.length === 0) {
+        if (silent !== true) {
+          setErrorMessage("ما ضفتوا أي قطع...");
+          setErrorMessagePlacement(Infinity);
+        }
+        return false;
+      }
+
+      let isError = false;
       let errorPriceDiscrepancy = false;
-      garments.forEach((o) => {
+      let indexError = NaN,
+        indexDiscrepancy = NaN;
+      garments.forEach((o, index) => {
         const n = (n: number) =>
-          isFinite(n) && parseInt(n.toString()) === n && n > 0;
-        errorPriceDiscrepancy = errorPriceDiscrepancy || (
-            "initialPrice" in o && 
-            typeof o.initialPrice === 'number' && 
-            o.initialPrice < o.price
-        );
+          typeof n === "number" &&
+          isFinite(n) &&
+          parseInt(n.toString()) === n &&
+          n > 0;
+        const n2 = (n: number) =>
+          typeof n === "number" && isFinite(n) && n > 0.0;
+        errorPriceDiscrepancy =
+          errorPriceDiscrepancy ||
+          ("initialPrice" in o &&
+            typeof o.initialPrice === "number" &&
+            o.initialPrice < o.price);
+        if (errorPriceDiscrepancy && isNaN(indexDiscrepancy))
+          indexDiscrepancy = index;
         if (
-          o.type.trim() === '' ||
+          o.type.trim() === "" ||
           o.size === "" ||
           !n(o.count) ||
-          o.price <= 0.0 ||
+          !n2(o.price) ||
           ("package" in o && !n(o.package!)) ||
-          ("initialPrice" in o && !n(o.initialPrice!))
+          ("initialPrice" in o && !n2(o.initialPrice!))
         ) {
           isError = true;
+          if (isNaN(indexError)) indexError = index;
         }
       });
 
-      if (errorPriceDiscrepancy)
+      if (errorPriceDiscrepancy) {
         isError = true;
+        indexError = indexDiscrepancy;
+      }
 
-      if (isError && silent !== true)
-        setErrorMessage("بعض القطع معلوماتها ناقصة أو غير صحيحة" +
-        (errorPriceDiscrepancy ? ' (السعر بعد المفاصلة أعلى من السعر الأصلي)' : ''));
+      if (isError && silent !== true) {
+        setErrorMessage(
+          "بعض القطع معلوماتها ناقصة أو غير صحيحة" +
+            (errorPriceDiscrepancy
+              ? " (السعر بعد المفاصلة أعلى من السعر الأصلي)"
+              : "")
+        );
+        setErrorMessagePlacement(indexError + 1);
+      }
+
       if (isError) return false;
 
       setErrorMessage("");
+      setErrorMessagePlacement(Infinity);
       return true;
     },
-    [garments, seller, merchant?.address, merchant?.name]
+    [validateMerchant, garments]
   );
 
   useEffect(() => {
     setTotalAmount(() => garments.reduce((a, b) => a + b.price * b.count, 0.0));
+    merchantSet.current = garments.reduce(
+      (set, element) => set.add(element.merchant),
+      new Set<string>()
+    );
   }, [garments]);
 
-  useEffect(() => {
-    setReadyToSubmit(validate(true));
-  }, [validate]);
+  // useEffect(() => {
+  //   setReadyToSubmit(validate(true));
+  // }, [validate]);
 
   useEffect(() => {
     (async () => {
@@ -187,20 +239,30 @@ export function ClothesForm() {
       if (
         leadVerified &&
         typeof endpoint === "string" &&
-        endpoint.length >= 25
+        endpoint.length === 25
       ) {
         console.log("security check in progress...");
-        const res = await fetch(
-          `https://forms.palcollective.com/f/${endpoint}`,
-          { method: "POST" }
-        );
-        if (res.status === 406) {
-          setSecurityChecked(true);
-          console.log(
-            "security check SUCCESSFUL (authenticity of form verified)"
-          );
-          return;
+        for (let i = 0; i < 3; i++) {
+          try {
+            const res = await fetch(
+              `https://forms.palcollective.com/f/${endpoint}`,
+              { method: "POST" }
+            );
+            if (res.status === 406) {
+              setSecurityChecked(true);
+              console.log(
+                "security check SUCCESSFUL (authenticity of form verified)"
+              );
+              return;
+            }
+          } catch {
+            continue;
+          }
         }
+
+        console.log("security check FAILED");
+        setErrorMessage("خوادمنا متعطلة في هذا الوقت.");
+        setErrorMessagePlacement(Infinity);
         const data: Record<string, string> = {
           ipLocation: JSON.stringify(ipLocation),
           formsId,
@@ -216,7 +278,6 @@ export function ClothesForm() {
             )}`
           );
         }
-        console.log("security check FAILED");
         await fetch(
           `https://forms.palcollective.com/f/clvwc6k47002timv3hmkqyoit`,
           {
@@ -231,6 +292,7 @@ export function ClothesForm() {
         );
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadVerified, endpoint]);
 
   useEffect(() => {
@@ -258,15 +320,25 @@ export function ClothesForm() {
       throw Error(`garment index (${index}) out of range`);
     }
 
-    setGarments((garments) => [
-      ...garments.slice(0, index),
-      { ...garments[index], [key]: value },
-      ...garments.slice(index + 1),
-    ]);
+    if (
+      !(value === undefined && !(key in garments[index])) &&
+      garments[index][key] !== value
+    ) {
+      const element = { ...garments[index], [key]: value };
+      if (element[key] === undefined) delete element[key];
+
+      setGarments((garments) => [
+        ...garments.slice(0, index),
+        element,
+        ...garments.slice(index + 1),
+      ]);
+
+      setReadyToSubmit(false);
+    }
   }
 
   const addGarmentButtonHandler = () => {
-    if (!validate()) setValidated(true);
+    if (!validateMerchant()) setValidated(true);
     else {
       // if we have a dirty merchant object, then we need to check
       // if the object matches one of the merchants hardcoded into
@@ -313,22 +385,34 @@ export function ClothesForm() {
       ]);
 
       setValidated(false);
+      setReadyToSubmit(false);
+      setErrorMessage("");
     }
   };
 
   async function submitForm(): Promise<boolean> {
-    if (!securityChecked || typeof endpoint !== 'string' || endpoint.trim().length !== 25)
+    if (
+      !securityChecked ||
+      typeof endpoint !== "string" ||
+      endpoint.trim().length !== 25
+    )
       return false;
 
-    const keyedGarments = garments.reduce((object : Record<string, string>, element, index) => {
-      object[`garment${index}`] = JSON.stringify(element);
-      return object;
-    }, {});
+    const keyedGarments = garments.reduce(
+      (object: Record<string, string>, element, index) => {
+        object[`garment${index + 1}`] = JSON.stringify(element);
+        return object;
+      },
+      {}
+    );
 
-    const keyedSuggestions = merchantSuggestions.reduce((object : Record<string, string>, element, index) => {
-      object[`suggested${index}`] = JSON.stringify(element);
-      return object;
-    }, {});
+    const keyedSuggestions = merchantSuggestions.reduce(
+      (object: Record<string, string>, element, index) => {
+        object[`suggested${index + 1}`] = JSON.stringify(element);
+        return object;
+      },
+      {}
+    );
 
     const data: Record<string, string> = {
       IP_info: JSON.stringify(ipLocation),
@@ -337,13 +421,23 @@ export function ClothesForm() {
       ...keyedGarments,
       ...keyedSuggestions,
     };
-    
+
+    const orderedProperties = [
+      "IP_info",
+      "confirmed_phone",
+      "total_amount",
+      ...Array.from(Array(garments.length).keys()).map(
+        (k) => `garment${k + 1}`
+      ),
+      ...Array.from(Array(merchantSuggestions.length).keys()).map(
+        (k) => `suggested${k + 1}`
+      ),
+    ];
     const payload = [];
-    for (const property in data) {
+    for (let i = 0; i < orderedProperties.length; i++) {
+      const property = orderedProperties[i];
       payload.push(
-        `${encodeURIComponent(property)}=${encodeURIComponent(
-          data[property]
-        )}`
+        `${encodeURIComponent(property)}=${encodeURIComponent(data[property])}`
       );
     }
 
@@ -365,16 +459,16 @@ export function ClothesForm() {
         );
         if (res.status === 200) {
           success = true;
-          break ;
+          break;
         }
         // await axios.post(
-        //   `https://forms.palcollective.com/f/${endpoint}`, 
+        //   `https://forms.palcollective.com/f/${endpoint}`,
         //   data
         // );
         success = true;
         break;
       } catch {
-        continue ;
+        continue;
       }
     }
 
@@ -442,7 +536,7 @@ export function ClothesForm() {
                 <ListItemText
                   primary={`تم اختيار ${garments.length} قطع`}
                   secondary={`بكلفة اجمالية من ${totalAmount} شيكل`}
-                  sx={{marginInlineStart: "0", width: '100%'}}
+                  sx={{ marginInlineStart: "0", width: "100%" }}
                 />
               </ListItemAvatar>
             </ListItem>
@@ -458,7 +552,7 @@ export function ClothesForm() {
                       : "تم اقتراح محلات أو تعديل معلومات محل معروف"
                   }
                   secondary={"لا نضمن الشراء من المحلات المقترحة"}
-                  sx={{marginInlineStart: "0", overflowY: 'auto'}}
+                  sx={{ marginInlineStart: "0", overflowY: "auto" }}
                 />
               </ListItemAvatar>
             </ListItem>
@@ -469,7 +563,7 @@ export function ClothesForm() {
         <Typography variant="h2" mt={1}>
           نموذج الكسوة
         </Typography>
-        <Typography variant="body1" mt={2} mb={4}>
+        <Typography variant="body1" mt={2} mb={3}>
           الرجاء ملء هذا النموذج من محل الملابس وبعثه عند تمام عملية الحجز
           لمساعدتنا على الدفع للتاجر٬ وتذكروا أن تفاصلوا التاجر وترفضوا الأسعار
           غير المنطقية وتقتصدوا٬ فأموالنا هي كأموالكم٬ وبارك الله فيكم.
@@ -481,9 +575,25 @@ export function ClothesForm() {
             seller,
             setSeller,
             validated,
+            resetValidated: () => {
+              setValidated(false);
+            },
             setDirtyMerchant,
           }}
         />
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={addGarmentButtonHandler}
+          sx={{ p: 1, mt: 1 }}
+        >
+          إضافة قطعة من هذا المحل
+        </Button>
+        {errorMessage !== "" && errorMessagePlacement === 0 && (
+          <Alert sx={{ mt: 2 }} severity="error">
+            {errorMessage}
+          </Alert>
+        )}
         <Typography variant="h4" mt={3} mb={2}>
           القطع المحجوزة
         </Typography>
@@ -495,9 +605,21 @@ export function ClothesForm() {
           garments.map((thisGarment, index) => (
             <>
               <Typography variant="h5" sx={{ fontWeight: 200 }}>
-                القطعة رقم "{String.fromCharCode("٠".charCodeAt(0) + index)}"{" "}
+                قطعة "{String.fromCharCode("٠".charCodeAt(0) + index + 1)}"{" "}
+                <Chip icon={<StorefrontIcon />} label={thisGarment.merchant} />
                 <IconButton
-                  sx={{ display: "inline" }}
+                  color="default"
+                  size="medium"
+                  sx={{
+                    display: "inline",
+                    marginInlineStart: 1,
+                    aspectRatio: "1/1",
+                    color: "primary.contrastText",
+                    backgroundColor: "primary.main",
+                    "&:hover": {
+                      color: "primary.main",
+                    },
+                  }}
                   onClick={() => {
                     setGarments((list) => [
                       ...list.slice(0, index),
@@ -519,46 +641,66 @@ export function ClothesForm() {
                   changeGarment(key, value, index);
                 }}
               />
+              {errorMessage !== "" && errorMessagePlacement === index + 1 ? (
+                <Alert sx={{ mt: 2, mb: 1 }} severity="error">
+                  {errorMessage}
+                </Alert>
+              ) : (
+                validated &&
+                errorMessagePlacement > index + 1 && (
+                  <Alert sx={{ mt: 2, mb: 1 }} severity="success">
+                    المعلومات تمام
+                  </Alert>
+                )
+              )}
               {index < garments.length - 1 && (
-                <Divider orientation="horizontal" />
+                <Divider orientation="horizontal" sx={{ mb: 0.5 }} />
               )}
             </>
           ))
-        )}
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={addGarmentButtonHandler}
-        >
-          إضافة قطعة
-        </Button>
-        {errorMessage !== "" && (
-          <Alert sx={{ mt: 2 }} severity="error">
-            {errorMessage}
-          </Alert>
         )}
       </Grid>
 
       {Array.isArray(garments) &&
         garments.length > 0 &&
         isFinite(totalAmount) &&
-        validated &&
         readyToSubmit && (
           <>
             <Card
               variant="elevation"
-              sx={{ p: 1, mt: 6, backgroundColor: "aliceblue" }}
+              sx={{ p: 1, mt: 2, backgroundColor: "aliceblue" }}
             >
               <Typography variant="h6" sx={{ fontWeight: 200 }}>
-                المبلغ الإجمالي ({garments.length} قطعة)
+                المبلغ الإجمالي ({garments.length} قطعة من{" "}
+                {merchantSet.current.size} محل)
               </Typography>
               <Divider orientation="horizontal" />
               <Typography variant="h6">{totalAmount} شيكل</Typography>
             </Card>
           </>
         )}
+      {errorMessage !== "" && errorMessagePlacement === Infinity && (
+        <Alert sx={{ mt: 2 }} severity="error">
+          {errorMessage}
+        </Alert>
+      )}
 
-      <Button
+      <Fab
+        variant="extended"
+        color={readyToSubmit ? "primary" : undefined}
+        onClick={() => {
+          if (!validate()) setValidated(true);
+          else if (!readyToSubmit) setReadyToSubmit(true);
+          else setConfirmationOpen(true);
+        }}
+        disabled={!securityChecked}
+        sx={{ mt: 2, mb: 2 }}
+      >
+        <ShoppingCartIcon sx={{ mr: 1 }} />
+        {readyToSubmit ? "توكلنا على الله" : "تحضير الطلب"}
+      </Fab>
+
+      {/* <Button
         sx={{ mt: 1 }}
         variant="contained"
         startIcon={<ShoppingCartIcon />}
@@ -573,7 +715,7 @@ export function ClothesForm() {
         disabled={!securityChecked}
       >
         {validated ? "توكلنا على الله" : "تحضير الطلب"}
-      </Button>
+      </Button> */}
 
       {DEBUG && !NODEBUG && (
         <Card

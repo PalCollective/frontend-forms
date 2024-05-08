@@ -67,10 +67,11 @@ let theme = createTheme({
             return {
               width: '90vw',
               height: 'auto',
-              fontSize: '8px',
+              fontSize: 8,
               fontFamily: ['"Nimbus Mono PS"', '"Courier New"', 'monospace'].join(','),
               overflowY: 'scroll',
-            }
+              fontWeight: 400,
+            };
           }
         },
       },
