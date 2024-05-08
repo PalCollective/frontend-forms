@@ -20,6 +20,7 @@ import AddIcon from "@mui/icons-material/Add";
 import CheckIcon from "@mui/icons-material/Check";
 import CheckroomIcon from "@mui/icons-material/Checkroom";
 import StorefrontIcon from "@mui/icons-material/Storefront";
+import RecentActorsIcon from "@mui/icons-material/RecentActors";
 import { Merchant } from "./data/merchants";
 import { MerchantSelection } from "./MerchantSelection";
 import { ConfirmationDialogue } from "./ConfirmationDialogue";
@@ -564,36 +565,14 @@ export function ClothesForm() {
           نموذج الكسوة
         </Typography>
         <Typography variant="body1" mt={2} mb={3}>
-          الرجاء ملء هذا النموذج من محل الملابس وبعثه عند تمام عملية الحجز
-          لمساعدتنا على الدفع للتاجر٬ وتذكروا أن تفاصلوا التاجر وترفضوا الأسعار
-          غير المنطقية وتقتصدوا٬ فأموالنا هي كأموالكم٬ وبارك الله فيكم.
+          الرجاء إضافة جميع القطع المرغوبة قبل بعث الطلب وبعثه عند تمام عملية
+          الحجز لمساعدتنا على الدفع للتاجر٬ وتذكروا أن تفاصلوا التجار وترفضوا
+          الأسعار غير المنطقية وتقتصدوا٬ فأموالنا هي أموالكم٬ وبارك الله فيكم.
         </Typography>
-        <MerchantSelection
-          {...{
-            merchant,
-            setMerchant,
-            seller,
-            setSeller,
-            validated,
-            resetValidated: () => {
-              setValidated(false);
-            },
-            setDirtyMerchant,
-          }}
-        />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={addGarmentButtonHandler}
-          sx={{ p: 1, mt: 1 }}
-        >
-          إضافة قطعة من هذا المحل
-        </Button>
-        {errorMessage !== "" && errorMessagePlacement === 0 && (
-          <Alert sx={{ mt: 2 }} severity="error">
-            {errorMessage}
-          </Alert>
-        )}
+        <Alert severity="info">
+          تستطيعون إضافة جميع القطع المرغوبة حتى لو كانت من محلات وبائعين
+          مختلفين في نفس الطلب٬ كما وتستطيعون اقتراح محلات وبائعين أيضاً.
+        </Alert>
         <Typography variant="h4" mt={3} mb={2}>
           القطع المحجوزة
         </Typography>
@@ -604,12 +583,11 @@ export function ClothesForm() {
         ) : (
           garments.map((thisGarment, index) => (
             <>
-              <Typography variant="h5" sx={{ fontWeight: 200 }}>
-                قطعة "{String.fromCharCode("٠".charCodeAt(0) + index + 1)}"{" "}
-                <Chip icon={<StorefrontIcon />} label={thisGarment.merchant} />
+              <Typography variant="h5" sx={{fontWeight:200,mb:1}}>
+                قطعة "{String.fromCharCode("٠".charCodeAt(0) + index + 1)}"
                 <IconButton
                   color="default"
-                  size="medium"
+                  size="small"
                   sx={{
                     display: "inline",
                     marginInlineStart: 1,
@@ -617,7 +595,7 @@ export function ClothesForm() {
                     color: "primary.contrastText",
                     backgroundColor: "primary.main",
                     "&:hover": {
-                      color: "primary.main",
+                      color: "black",
                     },
                   }}
                   onClick={() => {
@@ -627,9 +605,23 @@ export function ClothesForm() {
                     ]);
                   }}
                 >
-                  <DeleteIcon />
+                  <DeleteIcon sx={{ mr: 0.25, ml: 0.25 }} />
                 </IconButton>
               </Typography>
+              <Chip
+                icon={<StorefrontIcon />}
+                label={thisGarment.merchant}
+                sx={{
+                  fontWeight: 400,
+                  marginInlineEnd: 0.25,
+                  marginBlockEnd: 0.25,
+                }}
+              />
+              <Chip
+                icon={<RecentActorsIcon />}
+                label={thisGarment.seller}
+                sx={{ fontWeight: 400, marginBlockEnd: 0.25 }}
+              />
               <Garment
                 key={index}
                 validated={validated}
@@ -659,6 +651,37 @@ export function ClothesForm() {
             </>
           ))
         )}
+        <Box sx={{ maxWidth: "sm", mt: 3 }}>
+          <Card variant="outlined" sx={{ p: 2, pt: 0.5 }}>
+            <MerchantSelection
+              {...{
+                merchant,
+                setMerchant,
+                seller,
+                setSeller,
+                validated,
+                resetValidated: () => {
+                  setValidated(false);
+                },
+                setDirtyMerchant,
+              }}
+            />
+            {errorMessage !== "" && errorMessagePlacement === 0 && (
+              <Alert sx={{ mt: 2 }} severity="error">
+                {errorMessage}
+              </Alert>
+            )}
+            <Button
+              size="large"
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={addGarmentButtonHandler}
+              sx={{ p: 1, mt: 1 }}
+            >
+              إضافة قطعة من هذا المحل
+            </Button>
+          </Card>
+        </Box>
       </Grid>
 
       {Array.isArray(garments) &&

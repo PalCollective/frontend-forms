@@ -4,7 +4,10 @@ ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 
-ADD . /repo
+WORKDIR /repo
+
+ADD package.json /repo
+ADD pnpm-lock.yaml /repo
 
 FROM base AS prod-deps
 WORKDIR /repo
@@ -14,6 +17,7 @@ FROM base AS build
 WORKDIR /repo
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
+ADD . .
 RUN pnpm run build
 
 FROM base
