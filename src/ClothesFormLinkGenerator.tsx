@@ -11,7 +11,7 @@ export function ClothesFormLinkGenerator() {
   const [endpoint, setEndpoint] = useState<string>();
 
   const validateNumber = useCallback(
-    () => /^059[0-9]{7}$/.test(leadContact ?? ""),
+    () => /^05[96][0-9]{7}$/.test(leadContact ?? ""),
     [leadContact]
   );
   const validateEndpoint = useCallback(

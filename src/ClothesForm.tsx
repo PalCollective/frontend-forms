@@ -21,6 +21,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import CheckroomIcon from "@mui/icons-material/Checkroom";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import RecentActorsIcon from "@mui/icons-material/RecentActors";
+import SellIcon from '@mui/icons-material/Sell';
 import { Merchant } from "./data/merchants";
 import { MerchantSelection } from "./MerchantSelection";
 import { ConfirmationDialogue } from "./ConfirmationDialogue";
@@ -87,6 +88,7 @@ export function ClothesForm() {
   const [totalAmount, setTotalAmount] = useState<number>(NaN);
   const [readyToSubmit, setReadyToSubmit] = useState<boolean>(false);
   const [confirmationOpen, setConfirmationOpen] = useState<boolean>(false);
+  const [merchantIndex, setMerchantIndex] = useState<number>(-1);
   const merchantSet = useRef(new Set<string>());
 
   const ipLocation = useRef<Partial<IpLocationInformation>>({});
@@ -179,6 +181,14 @@ export function ClothesForm() {
     },
     [validateMerchant, garments]
   );
+
+  useEffect(() => {
+    let index = -1;
+    if (typeof merchant?.name === 'string' && merchant.name.length > 0)
+      index = merchants.findIndex(o => o.name.trim() === merchant.name.trim());
+    
+    setMerchantIndex(index);
+  }, [merchant, merchants]);
 
   useEffect(() => {
     setTotalAmount(() => garments.reduce((a, b) => a + b.price * b.count, 0.0));
@@ -495,6 +505,7 @@ export function ClothesForm() {
         <TextField
           label="رقم الهاتف المسجل عند العميل"
           fullWidth
+          inputProps={{ inputMode: "numeric" }}
           value={leadContact}
           onChange={(event) => {
             const value = event.target.value
@@ -573,17 +584,58 @@ export function ClothesForm() {
           تستطيعون إضافة جميع القطع المرغوبة حتى لو كانت من محلات وبائعين
           مختلفين في نفس الطلب٬ كما وتستطيعون اقتراح محلات وبائعين أيضاً.
         </Alert>
+        <Box sx={{ maxWidth: "sm", mt: 2, mb: 3 }}>
+          <Card
+            variant="outlined"
+            sx={{ p: 1.25, pt: 0.75, pb: 0.75 }}
+          >
+            <MerchantSelection
+              {...{
+                merchant,
+                setMerchant,
+                seller,
+                setSeller,
+                validated,
+                resetValidated: () => {
+                  setValidated(false);
+                },
+                setDirtyMerchant,
+              }}
+            />
+            {errorMessage !== "" && errorMessagePlacement === 0 && (
+              <Alert sx={{ mt: 2 }} severity="error">
+                {errorMessage}
+              </Alert>
+            )}
+            {errorMessage === "" && merchantIndex >= 0 && (
+              <Alert sx={{ mt: 2 }} severity="info">
+                حسب معلوماتنا فهذا المحل يوفر أنواع القطع التالية: 
+                {
+                  merchants[merchantIndex].categories.map(category => (
+                    <Chip
+                      icon={<SellIcon />}
+                      label={typeof category === 'string' ? category : category.join('-')}
+                      sx={{ fontWeight: 400, marginInlineStart: 0.5, mt:0.25,mb:0.25 }}
+                    />
+                  ))
+                }
+              </Alert>
+            )}
+          </Card>
+        </Box>
         <Typography variant="h4" mt={3} mb={2}>
           القطع المحجوزة
         </Typography>
+
         {garments.length == 0 ? (
-          <Typography variant="body1" mb={4}>
+          <Typography variant="body1">
             لا توجد أية قطع مضافة٬ أضف القطع المرغوبة عن طريق الزر أدناه.
           </Typography>
         ) : (
           garments.map((thisGarment, index) => (
-            <>
-              <Typography variant="h5" sx={{fontWeight:200,mb:1}}>
+            <Card variant='outlined'
+              sx={{p:0.75,pb:0,pt:0.75}}>
+              <Typography variant="h5" sx={{ fontWeight: 200, mb: 1 }}>
                 قطعة "{String.fromCharCode("٠".charCodeAt(0) + index + 1)}"
                 <IconButton
                   color="default"
@@ -639,48 +691,33 @@ export function ClothesForm() {
                 </Alert>
               ) : (
                 validated &&
-                errorMessagePlacement > index + 1 && (
+                (errorMessage === '' ||
+                errorMessagePlacement > index + 1) && (
                   <Alert sx={{ mt: 2, mb: 1 }} severity="success">
-                    المعلومات تمام
+                    السعر {thisGarment.count*thisGarment.price} شيكل{
+                      ` (عدد ${thisGarment.count} ${isFinite(thisGarment.package!)?'رزمة':'حبة'} كل ${isFinite(thisGarment.package!)?'رزمة':'حبة'} ${thisGarment.price} شيكل)`
+                    }
                   </Alert>
                 )
               )}
               {index < garments.length - 1 && (
                 <Divider orientation="horizontal" sx={{ mb: 0.5 }} />
               )}
-            </>
+            </Card>
           ))
         )}
-        <Box sx={{ maxWidth: "sm", mt: 3 }}>
-          <Card variant="outlined" sx={{ p: 2, pt: 0.5 }}>
-            <MerchantSelection
-              {...{
-                merchant,
-                setMerchant,
-                seller,
-                setSeller,
-                validated,
-                resetValidated: () => {
-                  setValidated(false);
-                },
-                setDirtyMerchant,
-              }}
-            />
-            {errorMessage !== "" && errorMessagePlacement === 0 && (
-              <Alert sx={{ mt: 2 }} severity="error">
-                {errorMessage}
-              </Alert>
-            )}
-            <Button
-              size="large"
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={addGarmentButtonHandler}
-              sx={{ p: 1, mt: 1 }}
-            >
-              إضافة قطعة من هذا المحل
-            </Button>
-          </Card>
+
+        <Box sx={{ maxWidth: "sm", mt: 2 }}>
+          <Button
+            fullWidth
+            size="large"
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={addGarmentButtonHandler}
+            sx={{ p: 1, mt: 1 }}
+          >
+            إضافة قطعة جديدة
+          </Button>
         </Box>
       </Grid>
 
@@ -710,6 +747,7 @@ export function ClothesForm() {
 
       <Fab
         variant="extended"
+        size="large"
         color={readyToSubmit ? "primary" : undefined}
         onClick={() => {
           if (!validate()) setValidated(true);

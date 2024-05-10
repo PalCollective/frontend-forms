@@ -365,7 +365,7 @@ export function Garment({ validated, garment, changeGarment }: GarmentProps) {
           onChange={(_, value) => {
             setPriceType(value);
           }}
-          sx={{ position: "relative", top: 7.5, marginInlineEnd: 0.25 }}
+          sx={{ position: "relative", top: 7.5, marginInlineEnd: 0.25,marginBlockEnd:1.5 }}
         >
           {Object.values(PriceType).map((type) => (
             <ToggleButton
